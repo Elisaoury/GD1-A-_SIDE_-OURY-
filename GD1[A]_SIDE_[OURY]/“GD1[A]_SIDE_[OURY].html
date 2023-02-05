@@ -1,0 +1,254 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" /><title>Mon 1er jeu Phaser</title>
+<script
+src="//cdn.jsdelivr.net/npm/phaser@3.55.2/dist/phaser.js"></script>
+    <style type="text/css"> body { margin: 0; }</style>
+</head>
+<body>
+<script type="text/javascript">
+
+var config = {
+    type: Phaser.AUTO,
+    width: 800, height: 600,
+
+physics: {
+        default: 'arcade',
+        arcade: {
+            gravity: { y: 100 },
+            debug: false
+        }},
+    scene: {preload: preload, create: create, update: update }
+};
+
+new Phaser.Game(config);
+
+function preload(){
+
+    this.load.spritesheet('perso','assets/perso.png',
+        { frameWidth: 32, frameHeight: 48 });
+
+// chargement tuiles de jeu
+this.load.image("Phaser_tuilesdejeu", "assets/Mon_Tileset.png");
+
+// chargement de la carte
+this.load.tilemapTiledJSON("carte", "assets/Premier_Niveau.json");
+}
+
+
+var platforms;
+var player
+var cursors
+var doubleJump = false;
+var unlockDoubleJump = false;
+var vie = false;
+var unlockImmuniseEau = false;
+var gameOver = false;
+var offTouche = false; 
+var beHit = false;
+var clignotement = 0
+var pointDeVie = 100
+            
+
+function create(){
+
+
+    // chargement de la carte
+const carteDuNiveau = this.add.tilemap("carte");
+
+// chargement du jeu de tuiles
+const tileset = carteDuNiveau.addTilesetImage(
+          "Mon_Tileset",
+          "Phaser_tuilesdejeu"
+        );  
+
+        // chargement du calque calque_background
+const calque_background = carteDuNiveau.createLayer(
+          "background",
+          tileset
+        );
+
+// chargement du calque calque_background_2
+const calque_collision = carteDuNiveau.createLayer(
+          "collision",
+          tileset
+        );
+
+// chargement du calque calque_plateformes
+const calque_decors = carteDuNiveau.createLayer(
+          "decors",
+          tileset
+        ); 
+// chargement du calque calque_plateformes
+const calque_plateforme = carteDuNiveau.createLayer(
+          "plateform",
+          tileset
+        );  
+   
+
+pointDeVie=this.add.text(16,16,'vie = 100',{fonttSize:'32px',fill:'#000'})
+//Création PowerUp
+doublejump = this.physics.add.group();            
+vie = this.physics.add.group();
+
+//peronnage
+    player = this.physics.add.sprite(32, 32, 'perso');
+    player.setBounce(0.2);
+    player.setCollideWorldBounds(true);
+    this.physics.add.collider(player, platforms);
+
+
+    this.anims.create({
+        key: 'left',
+        frames: this.anims.generateFrameNumbers('perso', {start:0,end:3}),
+        frameRate: 10,
+        repeat: -1
+    });
+
+    this.anims.create({
+        key: 'turn',
+        frames: [ { key: 'perso', frame: 4 } ],
+        frameRate: 20
+    });
+
+    this.anims.create({
+        key: 'right',
+        frames: this.anims.generateFrameNumbers('perso', {start:5,end:8}),
+        frameRate: 10,
+        repeat: -1
+    });
+
+   cursors = this.input.keyboard.createCursorKeys();
+
+
+
+
+        // définition des tuiles de plateformes qui sont solides
+// utilisation de la propriété estSolide
+calque_plateforme.setCollisionByProperty({ estSolide: true }); 
+calque_collision.setCollisionByProperty({ estSolide: true }); 
+
+this.physics.add.collider(player, calque_plateforme); 
+this.physics.add.collider(player, calque_collision); 
+
+// redimentionnement du monde avec les dimensions calculées via tiled
+this.physics.world.setBounds(0, 0, 1600, 1600);
+//  ajout du champs de la caméra de taille identique à celle du monde
+this.cameras.main.setBounds(0, 0, 1600, 1600);
+// ancrage de la caméra sur le joueur
+this.cameras.main.startFollow(player); 
+  
+}
+
+
+function update(){
+
+
+
+    if (cursors.left.isDown){ //si la touche gauche est appuyée
+        player.setVelocityX(-160); //alors vitesse négative en X
+        player.anims.play('left', true); //et animation => gauche
+    }
+    else if (cursors.right.isDown){ //sinon si la touche droite est appuyée
+        player.setVelocityX(160); //alors vitesse positive en X
+        player.anims.play('right', true); //et animation => droite
+    }
+    else{ // sinon
+        player.setVelocityX(0); //vitesse nulle
+        player.anims.play('turn'); //animation fait face caméra
+    }
+    if (cursors.up.isDown ){
+    //si touche haut appuyée ET que le perso touche le sol
+    player.setVelocityY(-110); //alors vitesse verticale négative
+    //(on saute)
+    }
+
+
+    //Wall Jump
+    if (cursors.up.isDown && player.body.blocked.right && walljump == true) {
+            walljump = false;
+            offTouche = true;
+            setTimeout(cdWallJump, 500);
+            setTimeout(blocageTouche, 200);
+            player.setVelocityY(-pDeplacementY);
+            player.setVelocityX(-50);
+            setTimeout(cdDJ, 500);
+    }
+    else if (cursors.up.isDown && player.body.blocked.left && walljump == true ) {
+            walljump = false;
+            offTouche = true;
+            setTimeout(cdWallJump, 500);
+            setTimeout(blocageTouche, 200);
+            player.setVelocityY(-pDeplacementY);
+            player.setVelocityX(50);
+            setTimeout(cdDJ, 500);
+    }
+                    
+//Double Jump
+    if ( cursors.up.isDown && doublejump == true && player.body.blocked.none ) {
+            player.setVelocityY(-pDeplacementY);
+            doublejump = false;
+                    }
+
+function verificationVie(){
+    if (health  == 0){
+        player.setTint(0xff0000);
+        player.anims.play('turn');
+        this.physics.pause();
+        setTimeout(restart, 2000);
+    }
+}
+
+function mort() {
+    this.physics.pause();
+    player.setTint(0xff0000);
+    player.anims.play('turn');
+    setTimeout(restart, 2000);
+}
+
+
+function restart() {
+    gameOver = true;
+}
+
+function victory() {
+    this.physics.pause();
+    player.setTint(0x008000);
+    player.anims.play('turn');
+}
+
+
+// Gestion des frames d'invulnérabilité
+function getHit() {
+    if ( beHit == false ) {
+        return true
+    }
+    else {
+        return false
+    }
+}
+
+function pinvisible() {
+    this.player.visible = false;
+    setTimeout(pvisible, 100);
+}
+            
+function pvisible() {
+    if (clignotement < 4) {
+        this.player.visible = true;
+        setTimeout(pinvisible, 100);   
+            clignotement += 1;
+    }
+    else {
+        this.player.visible = true;
+        clignotement = 0;
+        beHit = false;
+    }
+}
+            
+}
+
+</script>
+</body>
+</html>
